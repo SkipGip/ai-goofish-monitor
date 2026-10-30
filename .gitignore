@@ -15,3 +15,12 @@ prompts/
 .serena/
 price_history/
 data/
+
+# Local Windows deployment and generated dependencies
+.venv/
+.runtime/
+node_modules/
+*.tsbuildinfo
+.pytest_cache/
+.env.*
+!.env.example
