@@ -3,6 +3,7 @@
 """
 import os
 import json
+from src.services.ai_connection_log import log_connection_test
 from src.services.ai_profiles import load_backups, public_backups, prepare_backups, BACKUPS_KEY
 from typing import Optional
 
@@ -312,6 +313,9 @@ async def test_ai_settings(settings: dict):
         stored_api_key = env_manager.get_value("OPENAI_API_KEY", "")
         submitted_api_key = settings.get("OPENAI_API_KEY", "")
         api_key = submitted_api_key or stored_api_key
+        log_connection_test("primary", settings.get("OPENAI_BASE_URL", ""),
+            settings.get("OPENAI_MODEL_NAME", ""), api_key,
+            "submitted" if submitted_api_key else "saved_primary")
 
         client_params = {
             "api_key": api_key,
@@ -371,6 +375,9 @@ async def test_ai_backup(profile: dict):
     from src.services.ai_failover import request_with_failover
     try:
         prepared = prepare_backups([profile])
+        selected = prepared[0]
+        log_connection_test("backup", selected["base_url"], selected["model"], selected["api_key"],
+            "submitted" if profile.get("api_key", "").strip() else "saved_backup")
         text = await request_with_failover([{"role":"user", "content":AI_TEST_PROMPT}], prepared,
             max_output_tokens=AI_TEST_MAX_OUTPUT_TOKENS, enable_json_output=False, attempts=1)
         return {"success":True,"message":"备用配置连接成功","response":text}
