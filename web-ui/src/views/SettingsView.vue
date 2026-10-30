@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-// Backup AI temporarily disabled; saved profiles are retained.
+import AiBackupsPanel from '@/components/settings/AiBackupsPanel.vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSettings } from '@/composables/useSettings'
@@ -227,7 +227,7 @@ watch(selectedPrompt, async (value) => {
               <Label>{{ t('settings.ai.proxy') }}</Label>
               <Input v-model="aiSettings.PROXY_URL" placeholder="http://127.0.0.1:7890" />
             </div>
-            <!-- 备用 AI 配置已临时停用，仅使用上方主配置。 -->
+            <AiBackupsPanel v-model="aiSettings.AI_BACKUP_PROFILES" :disabled="isSaving" />
           </CardContent>
           <CardContent v-else class="py-8 text-sm text-gray-500">
             {{ t('settings.ai.loading') }}

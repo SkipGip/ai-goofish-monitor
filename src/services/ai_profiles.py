@@ -50,11 +50,6 @@ def prepare_backups(submitted, existing=None):
     return result
 
 
-def active_backups():
-    # Temporarily disabled at user request; retain saved profiles for restoration.
-    return []
-
-
 def ordered_profiles():
     primary=dict(id="primary", name="主配置", base_url=env_manager.get_value("OPENAI_BASE_URL", ""), model=env_manager.get_value("OPENAI_MODEL_NAME", ""), api_key=env_manager.get_value("OPENAI_API_KEY", ""), proxy_url=env_manager.get_value("PROXY_URL", ""))
-    return [primary, *active_backups()]
+    return [primary, *load_backups()]
