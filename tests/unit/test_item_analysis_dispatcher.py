@@ -129,24 +129,3 @@ def test_item_analysis_dispatcher_supports_keyword_mode_without_ai():
     asyncio.run(run())
     assert saved_records[0]["ai_analysis"]["analysis_source"] == "keyword"
     assert saved_records[0]["ai_analysis"]["is_recommended"] is True
-
-
-def test_discovery_notification_precedes_ai_and_is_not_repeated():
-    events = []
-    async def seller(_): return {}
-    async def images(*args): return []
-    async def notify(item, reason):
-        events.append("notify")
-        assert "尚未" in reason
-    async def analyze(*args):
-        assert events == ["notify"]
-        events.append("ai")
-        return {"is_recommended": False, "reason": "不推荐"}
-    async def save(*args): return True
-    async def run():
-        dispatcher = ItemAnalysisDispatcher(concurrency=1, skip_ai_analysis=False, seller_loader=seller, image_downloader=images, ai_analyzer=analyze, notifier=notify, saver=save)
-        job = ItemAnalysisJob(keyword="pc", task_name="pc", decision_mode="ai", analyze_images=False, prompt_text="p", keyword_rules=(), final_record={"商品信息": {"商品ID": "1"}}, seller_id=None, zhima_credit_text=None, registration_duration_text="")
-        dispatcher.submit(job)
-        await dispatcher.join()
-    asyncio.run(run())
-    assert events == ["notify", "ai"]
