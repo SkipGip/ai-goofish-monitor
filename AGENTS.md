@@ -37,3 +37,20 @@
 - 复制 `.env.example` 为 `.env`，设置必填项 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL_NAME` 等。
 - 不要提交真实凭据或 cookies（如 `state.json`）；Playwright 需本地浏览器，Docker 镜像已预装 Chromium。
 - Web 认证默认 `admin/admin123`，生产环境务必修改，推荐启用 HTTPS 并限制访问来源。
+
+## 本地工作区位置（用户要求）
+
+- 本地项目、克隆仓库和新工作区统一放在 `D:\Codex\Workspaces`，不要放在 C 盘；用户指定其他 D 盘位置时遵从指定位置。
+- 当前工作区：`D:\Codex\Workspaces\xianyu-helper-mail`；商品监控位于其 `ai-goofish-monitor` 子目录。
+- 同级 `xianyu-mailer`、`xianyu-helper-mail-repo` 保持相对路径关系。
+- 项目虚拟环境、node_modules、构建产物、日志和数据均保存在 D 盘项目内。
+- C 盘旧目录仅作为迁移提示，后续命令和编辑使用 D 盘真实路径。
+- 不擅自移动应用安装目录、用户凭据或系统配置。
+
+## 自动提交与远端推送（用户要求）
+
+- 本项目每次完成代码、文档或项目规则修改后，执行与改动相关的检查，然后自动提交并 push 到用户的远端仓库，无需重复询问是否提交或推送；用户明确要求暂不提交时例外。
+- 目标仓库为 https://github.com/SkipGip/ai-goofish-monitor；推送前确认远端与当前分支，禁止误推上游 Usagi-org 仓库。
+- 仅提交本次任务相关的源代码和文档；不得提交 .env、API Key、账号登录态、cookies、数据库、私人监控配置、日志或其他运行数据。
+- 提交使用 Conventional Commits；不要强制推送，不覆盖或丢弃用户已有改动。
+- 若目录缺少 Git 元数据、认证不可用或推送失败，明确报告未推送及原因；保留本地修改，不将本地保存或提交报告成远端推送成功。需要恢复 Git 工作区时使用 D 盘，并保留现有运行数据。
