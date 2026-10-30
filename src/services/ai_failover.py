@@ -16,7 +16,7 @@ def make_client(profile):
     url = urlparse(profile.get("base_url") or "")
     if url.scheme not in {"http", "https"} or not url.netloc or not profile.get("model"):
         raise ValueError("AI 地址或模型未配置")
-    options=dict(api_key=profile.get("api_key") or "not-required", base_url=profile["base_url"], max_retries=0, timeout=httpx.Timeout(60.0, connect=15.0))
+    options=dict(api_key=profile.get("api_key") or "not-required", base_url=profile["base_url"], max_retries=0, timeout=httpx.Timeout(60.0, connect=15.0, read=180.0 if profile.get("id") == "primary" else 60.0))
     # Explicit per-profile transport avoids cross-request proxy mutation.
     options["http_client"]=httpx.AsyncClient(proxy=profile.get("proxy_url") or None, trust_env=False)
     try:

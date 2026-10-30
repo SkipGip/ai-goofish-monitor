@@ -96,3 +96,14 @@ def test_concurrent_requests_do_not_share_failover_state(monkeypatch):
     asyncio.run(run())
     assert calls["one"]==["primary"]*5+["backup"]
     assert calls["two"]==["primary"]
+
+
+def test_primary_read_timeout_180_backup_60(monkeypatch):
+    captured = []
+    monkeypatch.setattr(module.httpx, "AsyncClient", lambda **kwargs: object())
+    monkeypatch.setattr(module, "AsyncOpenAI", lambda **kwargs: captured.append(kwargs))
+    module.make_client(profile("primary"))
+    module.make_client(profile("backup"))
+    assert [c["timeout"].read for c in captured] == [180.0, 60.0]
+    assert all(c["timeout"].connect == 15.0 for c in captured)
+    assert all(c["max_retries"] == 0 for c in captured)
