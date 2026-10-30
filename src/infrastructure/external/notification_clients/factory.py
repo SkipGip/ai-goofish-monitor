@@ -3,6 +3,7 @@
 """
 from src.infrastructure.config.settings import NotificationSettings
 
+from .smtp_client import SmtpClient
 from .bark_client import BarkClient
 from .gotify_client import GotifyClient
 from .ntfy_client import NtfyClient
@@ -15,6 +16,7 @@ from .pushplus_client import PushPlusClient
 def build_notification_clients(settings: NotificationSettings):
     pcurl_to_mobile = settings.pcurl_to_mobile
     return [
+        SmtpClient(settings),
         NtfyClient(settings.ntfy_topic_url, pcurl_to_mobile=pcurl_to_mobile),
         PushPlusClient(
             settings.pushplus_token,

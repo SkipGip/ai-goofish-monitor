@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import type { NotificationSettings, NotificationSettingsUpdate, NotificationTestResponse } from '@/api/settings'
 
-type ChannelKey = 'ntfy' | 'pushplus' | 'bark' | 'gotify' | 'wecom' | 'telegram' | 'webhook'
+type ChannelKey = 'smtp' | 'ntfy' | 'pushplus' | 'bark' | 'gotify' | 'wecom' | 'telegram' | 'webhook'
 
 const props = defineProps<{
   settings: NotificationSettings
@@ -37,8 +37,9 @@ const mutableInitialValues = initialValues as Record<string, string | boolean | 
 const mutableForm = form as Record<string, string | boolean | null | undefined>
 const mutableClearedFields = clearedFields as Record<string, boolean>
 
-const secretFields = ['BARK_URL', 'GOTIFY_TOKEN', 'WX_BOT_URL', 'TELEGRAM_BOT_TOKEN', 'WEBHOOK_URL', 'WEBHOOK_HEADERS', 'PUSHPLUS_TOKEN'] as const
+const secretFields = ['SMTP_PASSWORD', 'BARK_URL', 'GOTIFY_TOKEN', 'WX_BOT_URL', 'TELEGRAM_BOT_TOKEN', 'WEBHOOK_URL', 'WEBHOOK_HEADERS', 'PUSHPLUS_TOKEN'] as const
 const channelFields: Record<ChannelKey, (keyof NotificationSettingsUpdate)[]> = {
+  smtp: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURITY', 'SMTP_USERNAME', 'SMTP_PASSWORD', 'SMTP_FROM', 'SMTP_TO'],
   ntfy: ['NTFY_TOPIC_URL'],
   pushplus: ['PUSHPLUS_TOKEN', 'PUSHPLUS_TOPIC'],
   bark: ['BARK_URL'],
@@ -49,6 +50,13 @@ const channelFields: Record<ChannelKey, (keyof NotificationSettingsUpdate)[]> = 
 }
 
 function syncFromSettings(settings: NotificationSettings) {
+  initialValues.SMTP_HOST = settings.SMTP_HOST ?? ''
+  initialValues.SMTP_PORT = settings.SMTP_PORT ?? ''
+  initialValues.SMTP_SECURITY = settings.SMTP_SECURITY ?? ''
+  initialValues.SMTP_USERNAME = settings.SMTP_USERNAME ?? ''
+  initialValues.SMTP_FROM = settings.SMTP_FROM ?? ''
+  initialValues.SMTP_TO = settings.SMTP_TO ?? ''
+
   initialValues.NTFY_TOPIC_URL = settings.NTFY_TOPIC_URL ?? ''
   initialValues.PUSHPLUS_TOPIC = settings.PUSHPLUS_TOPIC ?? ''
   initialValues.GOTIFY_URL = settings.GOTIFY_URL ?? ''
@@ -61,6 +69,7 @@ function syncFromSettings(settings: NotificationSettings) {
   initialValues.PCURL_TO_MOBILE = settings.PCURL_TO_MOBILE ?? true
 
   Object.assign(form, initialValues, {
+    SMTP_PASSWORD: '',
     BARK_URL: '',
     GOTIFY_TOKEN: '',
     WX_BOT_URL: '',
@@ -127,6 +136,7 @@ function buildScopedPayload(channel?: ChannelKey): NotificationSettingsUpdate {
     ? new Set<string>([...channelFields[channel].map((field) => field as string), 'PCURL_TO_MOBILE'])
     : null
   const textFields: (keyof NotificationSettingsUpdate)[] = [
+    'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURITY', 'SMTP_USERNAME', 'SMTP_FROM', 'SMTP_TO',
     'NTFY_TOPIC_URL', 'PUSHPLUS_TOPIC', 'GOTIFY_URL', 'TELEGRAM_CHAT_ID', 'TELEGRAM_API_BASE_URL', 'WEBHOOK_METHOD',
     'WEBHOOK_CONTENT_TYPE', 'WEBHOOK_QUERY_PARAMETERS', 'WEBHOOK_BODY',
   ]
@@ -241,6 +251,20 @@ function resolveChannelBadge(channel: ChannelKey) {
     </div>
 
     <div v-else class="grid gap-4">
+      <Card class="app-surface-subtle">
+        <CardHeader><CardTitle>SMTP 邮箱</CardTitle><CardDescription>推荐商品发送到邮箱。使用邮箱授权码；支持 SSL 465 或 STARTTLS 587。</CardDescription></CardHeader>
+        <CardContent class="grid gap-3 sm:grid-cols-2">
+          <div><Label>SMTP 服务器</Label><Input :model-value="form.SMTP_HOST ?? ''" placeholder="smtp.gmail.com" @update:model-value="(value) => updateField('SMTP_HOST', String(value))" /></div>
+          <div><Label>端口</Label><Input :model-value="form.SMTP_PORT ?? ''" placeholder="465" @update:model-value="(value) => updateField('SMTP_PORT', String(value))" /></div>
+          <div><Label>加密方式</Label><Input :model-value="form.SMTP_SECURITY ?? ''" placeholder="ssl 或 starttls" @update:model-value="(value) => updateField('SMTP_SECURITY', String(value))" /></div>
+          <div><Label>登录账号（留空使用发件邮箱）</Label><Input :model-value="form.SMTP_USERNAME ?? ''" placeholder="" @update:model-value="(value) => updateField('SMTP_USERNAME', String(value))" /></div>
+          <div><Label>发件邮箱</Label><Input :model-value="form.SMTP_FROM ?? ''" placeholder="" @update:model-value="(value) => updateField('SMTP_FROM', String(value))" /></div>
+          <div><Label>收件邮箱</Label><Input :model-value="form.SMTP_TO ?? ''" placeholder="" @update:model-value="(value) => updateField('SMTP_TO', String(value))" /></div>
+          <div><Label>邮箱授权码</Label><Input type="password" autocomplete="new-password" :model-value="form.SMTP_PASSWORD ?? ''" :placeholder="secretConfigured.SMTP_PASSWORD ? '已配置，留空保持不变' : '填写邮箱授权码'" @update:model-value="(value) => updateSecretField('SMTP_PASSWORD', String(value))" /></div>
+        </CardContent>
+        <CardFooter class="flex flex-wrap gap-3"><Badge>{{ resolveChannelBadge('smtp') }}</Badge><Button variant="outline" :disabled="testingChannel !== null || props.isSaving" @click="handleTest('smtp')">测试邮件</Button><Button variant="outline" @click="clearChannel('smtp')">清空邮箱配置</Button><p v-if="testResults.smtp" :class="resultClass('smtp')">{{ testResults.smtp.message }}</p></CardFooter>
+      </Card>
+
       <Card class="app-surface-subtle overflow-hidden border-l-4 border-l-sky-500">
         <CardHeader><CardTitle class="flex items-center gap-2"><Radio class="h-4 w-4 text-sky-600" /> Ntfy</CardTitle><CardDescription>{{ t('notifyPanel.ntfy.description') }}</CardDescription></CardHeader>
         <CardContent><Label>Ntfy Topic URL</Label><Input :model-value="form.NTFY_TOPIC_URL ?? ''" placeholder="https://ntfy.sh/topic" @update:model-value="(value) => updateField('NTFY_TOPIC_URL', String(value))" /></CardContent>

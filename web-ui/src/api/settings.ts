@@ -1,6 +1,15 @@
 import { http } from '@/lib/http'
 
 export interface NotificationSettings {
+  SMTP_PASSWORD_SET?: boolean
+  SMTP_HOST?: string
+  SMTP_PORT?: string
+  SMTP_SECURITY?: string
+  SMTP_USERNAME?: string
+  SMTP_PASSWORD?: string
+  SMTP_FROM?: string
+  SMTP_TO?: string
+
   NTFY_TOPIC_URL?: string
   PUSHPLUS_TOKEN?: string
   PUSHPLUS_TOPIC?: string
@@ -29,6 +38,14 @@ export interface NotificationSettings {
 }
 
 export interface NotificationSettingsUpdate {
+  SMTP_HOST?: string | null
+  SMTP_PORT?: string | null
+  SMTP_SECURITY?: string | null
+  SMTP_USERNAME?: string | null
+  SMTP_PASSWORD?: string | null
+  SMTP_FROM?: string | null
+  SMTP_TO?: string | null
+
   NTFY_TOPIC_URL?: string | null
   PUSHPLUS_TOKEN?: string | null
   PUSHPLUS_TOPIC?: string | null

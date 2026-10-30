@@ -72,6 +72,13 @@ def _normalize_bool_value(value: bool) -> str:
 class NotificationSettingsModel(BaseModel):
     """通知设置模型"""
 
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: Optional[str] = None
+    SMTP_SECURITY: Optional[str] = None
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM: Optional[str] = None
+    SMTP_TO: Optional[str] = None
     NTFY_TOPIC_URL: Optional[str] = None
     PUSHPLUS_TOKEN: Optional[str] = None
     PUSHPLUS_TOPIC: Optional[str] = None

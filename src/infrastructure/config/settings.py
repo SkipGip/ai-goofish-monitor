@@ -56,6 +56,13 @@ class AISettings(_EnvSettings):
 
 class NotificationSettings(_EnvSettings):
     """通知服务配置"""
+    smtp_host: Optional[str] = _env_field(None, "SMTP_HOST")
+    smtp_port: Optional[str] = _env_field(None, "SMTP_PORT")
+    smtp_security: Optional[str] = _env_field(None, "SMTP_SECURITY")
+    smtp_username: Optional[str] = _env_field(None, "SMTP_USERNAME")
+    smtp_password: Optional[str] = _env_field(None, "SMTP_PASSWORD")
+    smtp_from: Optional[str] = _env_field(None, "SMTP_FROM")
+    smtp_to: Optional[str] = _env_field(None, "SMTP_TO")
     ntfy_topic_url: Optional[str] = _env_field(None, "NTFY_TOPIC_URL")
     pushplus_token: Optional[str] = _env_field(None, "PUSHPLUS_TOKEN")
     pushplus_topic: Optional[str] = _env_field(None, "PUSHPLUS_TOPIC")
@@ -80,6 +87,7 @@ class NotificationSettings(_EnvSettings):
     def has_any_notification_enabled(self) -> bool:
         """检查是否配置了任何通知服务"""
         return any([
+            self.smtp_host and self.smtp_from and self.smtp_to and self.smtp_password,
             self.ntfy_topic_url,
             self.pushplus_token,
             self.wx_bot_url,

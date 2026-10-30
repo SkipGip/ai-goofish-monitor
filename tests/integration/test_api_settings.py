@@ -437,3 +437,24 @@ def test_ai_test_endpoint_falls_back_to_responses_when_chat_completions_api_404(
     assert request_history[0][1]["messages"][0]["content"] == settings.AI_TEST_PROMPT
     assert request_history[1][0] == "responses"
     assert request_history[1][1]["input"][0]["content"][0]["text"] == settings.AI_TEST_PROMPT
+
+
+def test_smtp_settings_round_trip_and_clear(tmp_path, monkeypatch):
+    _clear_settings_env(monkeypatch)
+    for key in ("HOST", "PORT", "SECURITY", "USERNAME", "PASSWORD", "FROM", "TO"):
+        monkeypatch.delenv("SMTP_" + key, raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text("", encoding="utf-8")
+    monkeypatch.setattr(env_manager, "env_file", env_file)
+    client = _build_settings_client()
+    values = {"SMTP_HOST": "smtp.example.com", "SMTP_PORT": "465", "SMTP_SECURITY": "ssl", "SMTP_USERNAME": "", "SMTP_FROM": "a@example.com", "SMTP_TO": "b@example.com", "SMTP_PASSWORD": "test-only-secret"}
+    assert client.put("/api/settings/notifications", json=values).status_code == 200
+    response = client.get("/api/settings/notifications")
+    assert response.json()["SMTP_PASSWORD"] == ""
+    assert response.json()["SMTP_PASSWORD_SET"] is True
+    assert "test-only-secret" not in response.text
+    assert "smtp" in response.json()["CONFIGURED_CHANNELS"]
+    assert client.put("/api/settings/notifications", json={"SMTP_TO": "c@example.com"}).status_code == 200
+    assert client.get("/api/settings/notifications").json()["SMTP_PASSWORD_SET"] is True
+    assert client.put("/api/settings/notifications", json={k: None for k in values}).status_code == 200
+    assert "smtp" not in client.get("/api/settings/notifications").json()["CONFIGURED_CHANNELS"]

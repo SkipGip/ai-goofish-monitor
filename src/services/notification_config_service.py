@@ -12,6 +12,14 @@ from src.infrastructure.config.settings import (
 
 
 NOTIFICATION_FIELD_MAP = {
+    "SMTP_HOST": "smtp_host",
+    "SMTP_PORT": "smtp_port",
+    "SMTP_SECURITY": "smtp_security",
+    "SMTP_USERNAME": "smtp_username",
+    "SMTP_PASSWORD": "smtp_password",
+    "SMTP_FROM": "smtp_from",
+    "SMTP_TO": "smtp_to",
+
     "NTFY_TOPIC_URL": "ntfy_topic_url",
     "PUSHPLUS_TOKEN": "pushplus_token",
     "PUSHPLUS_TOPIC": "pushplus_topic",
@@ -32,6 +40,7 @@ NOTIFICATION_FIELD_MAP = {
 }
 
 CHANNEL_NOTIFICATION_FIELDS = {
+    "smtp": {"SMTP_HOST", "SMTP_PORT", "SMTP_SECURITY", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_FROM", "SMTP_TO"},
     "ntfy": {"NTFY_TOPIC_URL"},
     "pushplus": {"PUSHPLUS_TOKEN", "PUSHPLUS_TOPIC"},
     "bark": {"BARK_URL"},
@@ -53,6 +62,7 @@ CHANNEL_NOTIFICATION_FIELDS = {
 }
 
 SECRET_NOTIFICATION_FIELDS = {
+    "SMTP_PASSWORD",
     "BARK_URL",
     "GOTIFY_TOKEN",
     "WX_BOT_URL",
@@ -96,6 +106,14 @@ def build_notification_settings_response(
 ) -> dict:
     notification_settings = settings or load_notification_settings()
     response = {
+        "SMTP_HOST": notification_settings.smtp_host or "",
+        "SMTP_PORT": notification_settings.smtp_port or "",
+        "SMTP_SECURITY": notification_settings.smtp_security or "",
+        "SMTP_USERNAME": notification_settings.smtp_username or "",
+        "SMTP_PASSWORD": "",
+        "SMTP_FROM": notification_settings.smtp_from or "",
+        "SMTP_TO": notification_settings.smtp_to or "",
+
         "NTFY_TOPIC_URL": notification_settings.ntfy_topic_url or "",
         "PUSHPLUS_TOKEN": "",
         "PUSHPLUS_TOPIC": notification_settings.pushplus_topic or "",
@@ -147,6 +165,8 @@ def build_configured_channels(
 ) -> list[str]:
     notification_settings = settings or load_notification_settings()
     channels = []
+    if all([notification_settings.smtp_host, notification_settings.smtp_from, notification_settings.smtp_to, notification_settings.smtp_password]):
+        channels.append("smtp")
     if notification_settings.ntfy_topic_url:
         channels.append("ntfy")
     if notification_settings.pushplus_token:
@@ -192,7 +212,11 @@ def prepare_notification_settings_update(
             updates[env_name] = "true" if value else "false"
             continue
         if value is None:
-            deletions.append(env_name)
+            if env_name.startswith("SMTP_"):
+                # An explicit blank masks values previously loaded into os.environ.
+                updates[env_name] = ""
+            else:
+                deletions.append(env_name)
             continue
         updates[env_name] = value
     return updates, deletions, candidate_settings
@@ -261,6 +285,13 @@ def _build_channel_test_values(
 def load_notification_settings() -> NotificationSettings:
     return _build_notification_settings_model(
         {
+            "smtp_host": _normalize_existing_text(env_manager.get_value("SMTP_HOST")),
+            "smtp_port": _normalize_existing_text(env_manager.get_value("SMTP_PORT")),
+            "smtp_security": _normalize_existing_text(env_manager.get_value("SMTP_SECURITY")),
+            "smtp_username": _normalize_existing_text(env_manager.get_value("SMTP_USERNAME")),
+            "smtp_password": _normalize_existing_text(env_manager.get_value("SMTP_PASSWORD")),
+            "smtp_from": _normalize_existing_text(env_manager.get_value("SMTP_FROM")),
+            "smtp_to": _normalize_existing_text(env_manager.get_value("SMTP_TO")),
             "ntfy_topic_url": _normalize_existing_text(env_manager.get_value("NTFY_TOPIC_URL")),
             "pushplus_token": _normalize_existing_text(env_manager.get_value("PUSHPLUS_TOKEN")),
             "pushplus_topic": _normalize_existing_text(env_manager.get_value("PUSHPLUS_TOPIC")),
@@ -337,6 +368,27 @@ def _normalize_notification_values(values: dict) -> dict:
 
 
 def _validate_notification_settings(settings: NotificationSettings) -> None:
+    smtp_values = [getattr(settings, "smtp_" + field.lower()) for field in ("HOST", "PORT", "SECURITY", "USERNAME", "PASSWORD", "FROM", "TO")]
+    if any(smtp_values):
+        if not all([settings.smtp_host, settings.smtp_from, settings.smtp_to, settings.smtp_password]):
+            raise NotificationSettingsValidationError("SMTP 需要服务器、发件邮箱、收件邮箱和授权码")
+        if any("\r" in value or "\n" in value for value in smtp_values if value):
+            raise NotificationSettingsValidationError("SMTP 配置不能包含换行符")
+        security = settings.smtp_security or "ssl"
+        if security not in {"ssl", "starttls"}:
+            raise NotificationSettingsValidationError("SMTP 加密方式仅支持 ssl 或 starttls")
+        try:
+            port = int(settings.smtp_port or ("465" if security == "ssl" else "587"))
+        except ValueError:
+            raise NotificationSettingsValidationError("SMTP 端口必须是数字") from None
+        if not 1 <= port <= 65535:
+            raise NotificationSettingsValidationError("SMTP 端口超出范围")
+        from email.utils import parseaddr
+        for address in (settings.smtp_from, settings.smtp_to):
+            parsed = parseaddr(address)[1]
+            if parsed != address or "@" not in parsed or any(c in parsed for c in ",; "):
+                raise NotificationSettingsValidationError("请填写一个有效邮箱地址")
+
     for field_name in URL_FIELDS:
         value = getattr(settings, NOTIFICATION_FIELD_MAP[field_name])
         if value is not None:
