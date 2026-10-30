@@ -66,17 +66,16 @@ class ItemAnalysisDispatcher:
             await asyncio.gather(*tuple(self._tasks))
 
     async def _process_with_limit(self, job: ItemAnalysisJob) -> None:
+        await self._notify_discovered(job)
         async with self._semaphore:
             await self._process_job(job)
 
     async def _process_job(self, job: ItemAnalysisJob) -> None:
         record = copy.deepcopy(job.final_record)
-        item_data = record.get("商品信息", {}) or {}
         record["卖家信息"] = await self._load_seller_info(job)
         record["ai_analysis"] = await self._build_analysis_result(job, record)
         if await self._saver(record, job.keyword):
             self.completed_count += 1
-        await self._notify_if_recommended(item_data, record["ai_analysis"])
 
     async def _load_seller_info(self, job: ItemAnalysisJob) -> dict:
         seller_info = {}
@@ -164,10 +163,10 @@ class ItemAnalysisDispatcher:
             except Exception as exc:
                 print(f"   [图片] 删除图片文件时出错: {exc}")
 
-    async def _notify_if_recommended(self, item_data: dict, analysis_result: dict) -> None:
-        if not analysis_result.get("is_recommended"):
-            return
+    async def _notify_discovered(self, job: ItemAnalysisJob) -> None:
+        item_data = copy.deepcopy(job.final_record.get("商品信息", {}) or {})
+        item_data["notification_kind"] = "discovered"
         try:
-            await self._notifier(item_data, analysis_result.get("reason", "无"))
+            await self._notifier(item_data, "新发现的商品，尚未完成分析；不代表推荐，请核实配置、价格及风险。")
         except Exception as exc:
-            print(f"   [通知] 发送推荐通知失败: {exc}")
+            print(f"   [通知] 新商品通知发送失败: {exc}")
