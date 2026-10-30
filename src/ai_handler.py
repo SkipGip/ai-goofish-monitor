@@ -297,7 +297,9 @@ async def send_ntfy_notification(product_data, reason):
 
 async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
     """将完整的商品JSON数据和所有图片发送给 AI 进行分析（异步）。"""
-    if not client:
+    from src.services.ai_profiles import load_backups, ordered_profiles
+    backups = load_backups()
+    if not client and not backups:
         safe_print("   [AI分析] 错误：AI客户端未初始化，跳过分析。")
         return None
 
@@ -368,8 +370,18 @@ async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
     except Exception as e:
         safe_print(f"   [日志] 保存AI分析日志时出错: {e}")
 
+    if backups:
+        from src.services.ai_failover import request_with_failover
+        def validate_result(text):
+            parsed = parse_ai_response_json(text)
+            if not validate_ai_response_format(parsed):
+                raise ValueError("AI响应格式无效")
+            return parsed
+        return await request_with_failover(messages, ordered_profiles(), enable_json_output=ENABLE_RESPONSE_FORMAT,
+            enable_thinking=os.getenv("ENABLE_THINKING", "false").lower() == "true", validate=validate_result)
+
     # 增强的AI调用，包含更严格的结构化输出控制和重试机制
-    max_retries = 4
+    max_retries = 5
     api_mode = CHAT_COMPLETIONS_API_MODE
     use_response_format = ENABLE_RESPONSE_FORMAT
     use_temperature = True

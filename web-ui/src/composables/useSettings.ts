@@ -99,6 +99,7 @@ export function useSettings() {
         delete payload.OPENAI_API_KEY
       }
       await settingsApi.updateAiSettings(payload)
+      aiSettings.value = await settingsApi.getAiSettings()
       if (aiSettings.value.OPENAI_API_KEY) {
         aiSettings.value.OPENAI_API_KEY = ''
       }

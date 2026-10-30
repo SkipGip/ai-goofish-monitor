@@ -2,6 +2,8 @@
 设置管理路由
 """
 import os
+import json
+from src.services.ai_profiles import load_backups, public_backups, prepare_backups, BACKUPS_KEY
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -108,6 +110,7 @@ class NotificationTestRequest(BaseModel):
 class AISettingsModel(BaseModel):
     """AI设置模型"""
 
+    AI_BACKUP_PROFILES: Optional[list[dict]] = None
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_BASE_URL: Optional[str] = None
     OPENAI_MODEL_NAME: Optional[str] = None
@@ -264,6 +267,7 @@ async def get_system_status(
 @router.get("/ai")
 async def get_ai_settings():
     return {
+        "AI_BACKUP_PROFILES": public_backups(),
         "OPENAI_BASE_URL": env_manager.get_value("OPENAI_BASE_URL", ""),
         "OPENAI_MODEL_NAME": env_manager.get_value("OPENAI_MODEL_NAME", ""),
         "SKIP_AI_ANALYSIS": env_manager.get_value("SKIP_AI_ANALYSIS", "false").lower() == "true",
@@ -274,6 +278,12 @@ async def get_ai_settings():
 @router.put("/ai")
 async def update_ai_settings(settings: AISettingsModel):
     updates = {}
+    if settings.AI_BACKUP_PROFILES is not None:
+        try:
+            backups = prepare_backups(settings.AI_BACKUP_PROFILES)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from None
+        updates[BACKUPS_KEY] = json.dumps(backups, ensure_ascii=False)
     if settings.OPENAI_API_KEY is not None:
         updates["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
     if settings.OPENAI_BASE_URL is not None:
@@ -354,3 +364,17 @@ async def test_ai_settings(settings: dict):
             "success": False,
             "message": f"AI模型连接测试失败: {exc}",
         }
+
+
+@router.post("/ai/backups/test")
+async def test_ai_backup(profile: dict):
+    from src.services.ai_failover import request_with_failover
+    try:
+        prepared = prepare_backups([profile])
+        text = await request_with_failover([{"role":"user", "content":AI_TEST_PROMPT}], prepared,
+            max_output_tokens=AI_TEST_MAX_OUTPUT_TOKENS, enable_json_output=False, attempts=1)
+        return {"success":True,"message":"备用配置连接成功","response":text}
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from None
+    except Exception:
+        return {"success":False,"message":"备用配置连接失败，请检查地址、模型、Key 和代理"}

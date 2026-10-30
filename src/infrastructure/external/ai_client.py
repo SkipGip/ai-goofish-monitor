@@ -114,6 +114,8 @@ class AIClient:
 
             return AsyncOpenAI(
                 api_key=self.settings.api_key,
+                max_retries=0,
+                timeout=60.0,
                 base_url=self.settings.base_url
             )
         except Exception as e:
@@ -122,7 +124,8 @@ class AIClient:
 
     def is_available(self) -> bool:
         """检查 AI 客户端是否可用"""
-        return self.client is not None
+        from src.services.ai_profiles import load_backups
+        return self.client is not None or bool(load_backups())
 
     async def close(self) -> None:
         """关闭底层异步客户端，避免事件循环结束后再触发清理。"""
@@ -203,6 +206,12 @@ class AIClient:
         enable_json_output: Optional[bool] = None,
     ) -> str:
         """调用 AI API"""
+        from src.services.ai_profiles import load_backups, ordered_profiles
+        if load_backups():
+            from src.services.ai_failover import request_with_failover
+            return await request_with_failover(messages, ordered_profiles(), temperature=temperature,
+                max_output_tokens=max_output_tokens, enable_json_output=self.settings.enable_response_format if enable_json_output is None else enable_json_output,
+                enable_thinking=self.settings.enable_thinking)
         api_mode = CHAT_COMPLETIONS_API_MODE
         use_response_format = (
             self.settings.enable_response_format

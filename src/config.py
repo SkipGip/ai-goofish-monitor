@@ -74,7 +74,7 @@ else:
             os.environ['HTTPS_PROXY'] = PROXY_URL
 
         # openai 客户端内部的 httpx 会自动从环境变量中获取代理配置
-        client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
+        client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL, max_retries=0, timeout=60.0)
     except Exception as e:
         print(f"初始化 OpenAI 客户端时出错: {e}")
         client = None

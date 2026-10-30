@@ -334,6 +334,7 @@ def test_ai_settings_fall_back_to_runtime_environment_when_env_file_missing(tmp_
     ai_response = client.get("/api/settings/ai")
     assert ai_response.status_code == 200
     assert ai_response.json() == {
+        "AI_BACKUP_PROFILES": [],
         "OPENAI_BASE_URL": "https://runtime.example.com/v1",
         "OPENAI_MODEL_NAME": "runtime-model",
         "SKIP_AI_ANALYSIS": False,
@@ -458,3 +459,25 @@ def test_smtp_settings_round_trip_and_clear(tmp_path, monkeypatch):
     assert client.get("/api/settings/notifications").json()["SMTP_PASSWORD_SET"] is True
     assert client.put("/api/settings/notifications", json={k: None for k in values}).status_code == 200
     assert "smtp" not in client.get("/api/settings/notifications").json()["CONFIGURED_CHANNELS"]
+
+
+def test_ai_backups_roundtrip_masks_and_preserves_secrets(tmp_path, monkeypatch):
+    _clear_settings_env(monkeypatch)
+    monkeypatch.delenv("AI_BACKUP_PROFILES", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text("", encoding="utf-8")
+    monkeypatch.setattr(env_manager, "env_file", env_file)
+    client = _build_settings_client()
+    profile = {"id":"backup-one", "name":"备用", "base_url":"https://backup.example/v1", "model":"vision", "api_key":"test-backup-secret", "proxy_url":""}
+    assert client.put("/api/settings/ai", json={"AI_BACKUP_PROFILES":[profile]}).status_code == 200
+    result = client.get("/api/settings/ai")
+    assert "test-backup-secret" not in result.text
+    visible = result.json()["AI_BACKUP_PROFILES"]
+    assert visible[0]["api_key_set"] is True
+    assert client.put("/api/settings/ai", json={"AI_BACKUP_PROFILES":visible}).status_code == 200
+    from src.services.ai_profiles import load_backups
+    assert load_backups()[0]["api_key"] == "test-backup-secret"
+    visible[0]["base_url"] = "https://other.example/v1"
+    assert client.put("/api/settings/ai", json={"AI_BACKUP_PROFILES":visible}).status_code == 422
+    assert client.put("/api/settings/ai", json={"AI_BACKUP_PROFILES":[]}).status_code == 200
+    assert client.get("/api/settings/ai").json()["AI_BACKUP_PROFILES"] == []

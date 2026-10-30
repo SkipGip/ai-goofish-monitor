@@ -74,7 +74,18 @@ export interface NotificationTestResponse {
   }>
 }
 
+export interface AIBackupProfile {
+  id: string
+  name: string
+  base_url: string
+  model: string
+  api_key: string
+  api_key_set?: boolean
+  proxy_url: string
+}
+
 export interface AiSettings {
+  AI_BACKUP_PROFILES?: AIBackupProfile[]
   OPENAI_API_KEY?: string
   OPENAI_BASE_URL?: string
   OPENAI_MODEL_NAME?: string

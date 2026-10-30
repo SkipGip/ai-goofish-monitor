@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import AiBackupsPanel from '@/components/settings/AiBackupsPanel.vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSettings } from '@/composables/useSettings'
@@ -204,7 +205,7 @@ watch(selectedPrompt, async (value) => {
           </CardHeader>
           <CardContent v-if="isReady" class="space-y-4">
             <div class="grid gap-2">
-              <Label>API Base URL</Label>
+              <Label>主配置 API Base URL</Label>
               <Input v-model="aiSettings.OPENAI_BASE_URL" placeholder="https://api.openai.com/v1" />
             </div>
             <div class="grid gap-2">
@@ -226,6 +227,7 @@ watch(selectedPrompt, async (value) => {
               <Label>{{ t('settings.ai.proxy') }}</Label>
               <Input v-model="aiSettings.PROXY_URL" placeholder="http://127.0.0.1:7890" />
             </div>
+            <AiBackupsPanel v-model="aiSettings.AI_BACKUP_PROFILES" :disabled="isSaving" />
           </CardContent>
           <CardContent v-else class="py-8 text-sm text-gray-500">
             {{ t('settings.ai.loading') }}
