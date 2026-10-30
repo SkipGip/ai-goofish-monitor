@@ -372,6 +372,9 @@ async def test_ai_settings(settings: dict):
 
 @router.post("/ai/backups/test")
 async def test_ai_backup(profile: dict):
+    # Temporarily disabled while diagnosing the primary connection.
+    return {"success": False, "message": "备用 AI 已临时停用，仅使用主配置"}
+
     from src.services.ai_failover import request_with_failover
     try:
         prepared = prepare_backups([profile])

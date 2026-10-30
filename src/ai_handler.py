@@ -297,8 +297,8 @@ async def send_ntfy_notification(product_data, reason):
 
 async def get_ai_analysis(product_data, image_paths=None, prompt_text=""):
     """将完整的商品JSON数据和所有图片发送给 AI 进行分析（异步）。"""
-    from src.services.ai_profiles import load_backups, ordered_profiles
-    backups = load_backups()
+    from src.services.ai_profiles import active_backups, ordered_profiles
+    backups = active_backups()
     if not client and not backups:
         safe_print("   [AI分析] 错误：AI客户端未初始化，跳过分析。")
         return None
