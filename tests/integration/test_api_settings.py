@@ -481,3 +481,54 @@ def test_ai_backups_roundtrip_masks_and_preserves_secrets(tmp_path, monkeypatch)
     assert client.put("/api/settings/ai", json={"AI_BACKUP_PROFILES":visible}).status_code == 422
     assert client.put("/api/settings/ai", json={"AI_BACKUP_PROFILES":[]}).status_code == 200
     assert client.get("/api/settings/ai").json()["AI_BACKUP_PROFILES"] == []
+
+
+def test_primary_connection_test_uses_submitted_credentials_not_backups(tmp_path, monkeypatch):
+    import openai
+    from types import SimpleNamespace
+    _clear_settings_env(monkeypatch)
+    env_file = tmp_path / ".env"
+    original = "OPENAI_API_KEY=old-primary-key\nOPENAI_BASE_URL=https://old.example/v1\n"
+    env_file.write_text(original, encoding="utf-8")
+    monkeypatch.setattr(env_manager, "env_file", env_file)
+    captured = {}
+    def fake_client(**kwargs):
+        captured.update(kwargs)
+        return object()
+    def fake_response(client, mode, params):
+        captured["model"] = params["model"]
+        return SimpleNamespace(output_text="OK")
+    monkeypatch.setattr(openai, "OpenAI", fake_client)
+    monkeypatch.setattr(settings, "create_ai_response_sync", fake_response)
+    payload = {"OPENAI_BASE_URL":"https://openrouter.ai/api/v1", "OPENAI_API_KEY":"new-primary-key", "OPENAI_MODEL_NAME":"primary-model", "AI_BACKUP_PROFILES":[{"id":"backup", "base_url":"https://backup.example/v1", "api_key":"backup-key", "model":"backup-model"}]}
+    response = _build_settings_client().post("/api/settings/ai/test", json=payload)
+    assert response.json()["success"] is True
+    assert captured["base_url"] == "https://openrouter.ai/api/v1"
+    assert captured["api_key"] == "new-primary-key"
+    assert captured["model"] == "primary-model"
+    assert env_file.read_text(encoding="utf-8") == original
+    # Even when the primary field is blank, only the saved primary key is used.
+    payload["OPENAI_API_KEY"] = ""
+    response = _build_settings_client().post("/api/settings/ai/test", json=payload)
+    assert response.json()["success"] is True
+    assert captured["api_key"] == "old-primary-key"
+
+
+def test_primary_401_is_returned_from_selected_endpoint_without_backup(tmp_path, monkeypatch):
+    import openai
+    import httpx
+    _clear_settings_env(monkeypatch)
+    env_file = tmp_path / ".env"
+    env_file.write_text("", encoding="utf-8")
+    monkeypatch.setattr(env_manager, "env_file", env_file)
+    calls = []
+    monkeypatch.setattr(openai, "OpenAI", lambda **kwargs: calls.append(kwargs) or object())
+    def unauthorized(*args):
+        response = httpx.Response(401, request=httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions"))
+        raise openai.AuthenticationError("User not found.", response=response, body=None)
+    monkeypatch.setattr(settings, "create_ai_response_sync", unauthorized)
+    result = _build_settings_client().post("/api/settings/ai/test", json={"OPENAI_BASE_URL":"https://openrouter.ai/api/v1", "OPENAI_API_KEY":"test-only-key", "OPENAI_MODEL_NAME":"example"}).json()
+    assert result["success"] is False
+    assert "User not found" in result["message"]
+    assert len(calls) == 1
+    assert calls[0]["base_url"] == "https://openrouter.ai/api/v1"
