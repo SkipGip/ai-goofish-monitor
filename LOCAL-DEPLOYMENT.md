@@ -49,3 +49,14 @@ npm --prefix web-ui run build
 ## AI 连接测试日志
 
 点击主配置或备用的测试按钮时，实际选用的地址、模型、Key 来源、长度与 SHA-256 前 16 位指纹写入 `logs/ai-connection-tests.jsonl`，同时输出到服务标准日志。submitted 表示本次输入，saved_primary/saved_backup 表示使用已保存的对应 Key。不会记录完整 Key，URL 查询参数与凭据会移除。日志为本地运行数据，不提交到远端。
+
+## Independent Windows background startup
+
+The live deployment uses the per-user Windows scheduled task `AI-Goofish-Monitor-Local`.
+It runs `.venv/Scripts/pythonw.exe run-background.py` from the live project directory,
+with ordinary user privileges, at Windows logon. Closing Codex does not own or stop
+this scheduled process. Logging stays in `logs/server-out.log` and `logs/server-error.log`.
+The task has no execution time limit and retries failures up to three times at one-minute intervals.
+Use Windows Task Scheduler to start, stop, or disable this task. Do not launch
+`start-local.cmd` concurrently while port 18080 is already in use.
+The service requires a logged-in user; shutdown, sign-out, or sleep interrupts monitoring.
