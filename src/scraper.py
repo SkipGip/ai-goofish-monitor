@@ -504,6 +504,27 @@ async def scrape_user_profile(context, user_id: str) -> dict:
 
 
 async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
+    from uuid import uuid4
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from src.services.round_email_service import send_round_summary
+    records = []
+    run_id = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d-%H%M%S") + "-" + uuid4().hex[:8]
+    completed = False
+    cancelled = False
+    try:
+        result = await _scrape_xianyu_run(task_config, debug_limit, records)
+        completed = True
+        return result
+    except asyncio.CancelledError:
+        cancelled = True
+        raise
+    finally:
+        if not cancelled:
+            await send_round_summary(task_config.get("task_name", "未命名任务"), run_id, records, completed)
+
+
+async def _scrape_xianyu_run(task_config: dict, debug_limit: int, round_records: list):
     """
     【核心执行器】
     根据单个任务配置，异步爬取闲鱼商品数据，并对每个新发现的商品进行实时的、独立的AI分析和通知。
@@ -596,6 +617,11 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
         picked = proxy_pool.pick_random()
         return picked or selected_proxy
 
+    async def save_round_record(record, keyword):
+        import copy
+        round_records.append(copy.deepcopy(record))
+        return await save_to_jsonl(record, keyword)
+
     async def _run_scrape_attempt(state_file: str, proxy_server: Optional[str]) -> int:
         processed_item_count = 0
         stop_scraping = False
@@ -657,7 +683,7 @@ async def scrape_xianyu(task_config: dict, debug_limit: int = 0):
                 image_downloader=download_all_images,
                 ai_analyzer=get_ai_analysis,
                 notifier=send_ntfy_notification,
-                saver=save_to_jsonl,
+                saver=save_round_record,
             )
 
             # 增强反检测脚本（模拟真实移动设备）
