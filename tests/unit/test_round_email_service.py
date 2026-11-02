@@ -53,9 +53,10 @@ def test_image_attachment_and_link_fallback(monkeypatch):
     import httpx
     original = httpx.AsyncClient
     def handler(request):
+        assert request.url.scheme == "https"
         return httpx.Response(200, headers={"content-type":"image/jpeg"}, content=b"test-image")
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: original(transport=httpx.MockTransport(handler), **kw))
-    records = [{"商品信息":{"商品图片列表":["https://img.alicdn.com/a.jpg", "http://127.0.0.1/private"]}}]
+    records = [{"商品信息":{"商品图片列表":["http://img.alicdn.com/a.jpg", "http://127.0.0.1/private"]}}]
     message = module.build_round_message("t", "r", records, True)
     asyncio.run(module.attach_round_images(message, records))
     assert message.attachments == [("item-1-photo-1.jpg", "image/jpeg", b"test-image")]

@@ -58,7 +58,7 @@ async def _send_round_batch(task_name, run_id, records, completed, index, count)
     try:
         await attach_round_images(message, records)
         await asyncio.to_thread(client._send_sync, message)
-        print(f"[邮件汇总] {run_id} 第{index}/{count}封 SMTP已接受，{len(records)}条", flush=True)
+        print(f"[邮件汇总] {run_id} 第{index}/{count}封 SMTP已接受，{len(records)}条，图片附件{len(getattr(message, 'attachments', []))}张", flush=True)
         return True
     except Exception as exc:
         print(f"[邮件汇总] {run_id} 发送失败：{type(exc).__name__}", flush=True)
@@ -80,6 +80,9 @@ async def attach_round_images(message, records):
                 filename = f"item-{item_index}-photo-{photo_index}"
                 try:
                     parsed = urlsplit(str(url))
+                    if parsed.scheme == "http" and (parsed.hostname or "").endswith(".alicdn.com") and parsed.port in (None, 80) and not parsed.username:
+                        url = parsed._replace(scheme="https", netloc=parsed.hostname).geturl()
+                        parsed = urlsplit(url)
                     if parsed.scheme != "https" or not (parsed.hostname or "").endswith(".alicdn.com") or parsed.port not in (None, 443) or parsed.username:
                         raise ValueError("unsupported image host")
                     remaining = deadline - asyncio.get_running_loop().time()
