@@ -47,3 +47,17 @@ def test_scrape_wrapper_sends_once_and_isolates_runs(monkeypatch):
     assert len(sent) == 2
     assert sent[0][1] == [{"商品信息": {"商品ID": "one"}}]
     assert sent[1][1] == [{"商品信息": {"商品ID": "two"}}]
+
+
+def test_image_attachment_and_link_fallback(monkeypatch):
+    import httpx
+    original = httpx.AsyncClient
+    def handler(request):
+        return httpx.Response(200, headers={"content-type":"image/jpeg"}, content=b"test-image")
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: original(transport=httpx.MockTransport(handler), **kw))
+    records = [{"商品信息":{"商品图片列表":["https://img.alicdn.com/a.jpg", "http://127.0.0.1/private"]}}]
+    message = module.build_round_message("t", "r", records, True)
+    asyncio.run(module.attach_round_images(message, records))
+    assert message.attachments == [("item-1-photo-1.jpg", "image/jpeg", b"test-image")]
+    assert "未附带" in message.content
+    assert "这是汇总的内容" in message.content

@@ -30,6 +30,9 @@ class SmtpClient(NotificationClient):
             mail["Date"] = formatdate(localtime=True)
             mail["Message-ID"] = make_msgid()
             mail.set_content(message.title + "\n\n" + message.content)
+            for filename, mime_type, data in getattr(message, "attachments", []):
+                maintype, subtype = mime_type.split("/", 1)
+                mail.add_attachment(data, maintype=maintype, subtype=subtype, filename=filename)
             security = settings.smtp_security or "ssl"
             if security not in {"ssl", "starttls"}:
                 raise ValueError("Unsupported TLS mode")
