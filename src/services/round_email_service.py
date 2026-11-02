@@ -21,7 +21,14 @@ def build_round_message(task_name, run_id, records, completed):
             status = "待确认"
         else:
             status = "不推荐"
-        details.append({"状态": status, "商品信息": record.get("商品信息", {}), "分析结果": analysis})
+        item = record.get("商品信息") or {}
+        chip = (analysis.get("criteria_analysis") or {}).get("model_chip") or {}
+        details.append({"序号": len(details) + 1, "状态": status,
+            "标题及描述": str(item.get("商品标题", ""))[:600],
+            "价格": item.get("当前售价", ""), "链接": item.get("商品链接", ""),
+            "图片链接": item.get("商品图片列表") or [],
+            "配置摘要": str(chip.get("comment", ""))[:350],
+            "结论": reason[:300], "主要风险": (analysis.get("risk_tags") or [])[:5]})
     state = "本轮结束" if completed else "本轮异常结束，以下为已产生的部分结果"
     content = ("这是汇总的内容。\n"
         f"任务：{task_name}\n轮次：{run_id}\n{state}\n本轮结果：{len(details)} 条。\n"
@@ -32,15 +39,26 @@ def build_round_message(task_name, run_id, records, completed):
 
 
 async def send_round_summary(task_name, run_id, records, completed=True):
+    batches = [records[i:i+5] for i in range(0, len(records), 5)] or [[]]
+    success = True
+    for index, batch in enumerate(batches, 1):
+        sent = await _send_round_batch(task_name, run_id, batch, completed, index, len(batches))
+        success = sent and success
+    return success
+
+
+async def _send_round_batch(task_name, run_id, records, completed, index, count):
     client = SmtpClient(load_notification_settings())
     if not client.is_enabled():
         print(f"[邮件汇总] {run_id} 未发送：SMTP未配置", flush=True)
         return False
     message = build_round_message(task_name, run_id, records, completed)
+    message.notification_title = f"[本轮汇总][{index}/{count}] {task_name} · {run_id}"
+    message.content = f"第 {index}/{count} 封，每封最多5条，请逐条判断。\n" + message.content
     try:
         await attach_round_images(message, records)
         await asyncio.to_thread(client._send_sync, message)
-        print(f"[邮件汇总] {run_id} SMTP已接受，{len(records)}条", flush=True)
+        print(f"[邮件汇总] {run_id} 第{index}/{count}封 SMTP已接受，{len(records)}条", flush=True)
         return True
     except Exception as exc:
         print(f"[邮件汇总] {run_id} 发送失败：{type(exc).__name__}", flush=True)

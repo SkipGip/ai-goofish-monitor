@@ -61,3 +61,15 @@ def test_image_attachment_and_link_fallback(monkeypatch):
     assert message.attachments == [("item-1-photo-1.jpg", "image/jpeg", b"test-image")]
     assert "未附带" in message.content
     assert "这是汇总的内容" in message.content
+
+
+def test_summary_batches_five_without_losing_items(monkeypatch):
+    calls = []
+    async def send(name, run_id, records, completed, index, count):
+        calls.append((list(records), index, count))
+        return True
+    monkeypatch.setattr(module, "_send_round_batch", send)
+    assert asyncio.run(module.send_round_summary("t", "r", list(range(19))))
+    assert [len(c[0]) for c in calls] == [5, 5, 5, 4]
+    assert [x for c in calls for x in c[0]] == list(range(19))
+    assert all(c[2] == 4 for c in calls)
