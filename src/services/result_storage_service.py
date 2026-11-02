@@ -263,6 +263,7 @@ async def query_result_records(
     page: int,
     limit: int,
     include_hidden: bool = False,
+    item_id: str = "",
 ) -> tuple[int, list[dict]]:
     return await asyncio.to_thread(
         _query_result_records_sync,
@@ -274,6 +275,7 @@ async def query_result_records(
         page,
         limit,
         include_hidden,
+        item_id,
     )
 
 
@@ -286,6 +288,7 @@ def _query_result_records_sync(
     page: int,
     limit: int,
     include_hidden: bool,
+    item_id: str = "",
 ) -> tuple[int, list[dict]]:
     bootstrap_sqlite_storage()
     offset = max(page - 1, 0) * limit
@@ -299,6 +302,8 @@ def _query_result_records_sync(
             sort_order=sort_order,
             include_hidden=include_hidden,
         )
+    if item_id.strip():
+        records = [r for r in records if str((r.get("商品信息") or {}).get("商品ID", "")) == item_id.strip()]
     total = len(records)
     return total, records[offset: offset + limit]
 

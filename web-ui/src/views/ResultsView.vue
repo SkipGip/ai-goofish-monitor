@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog'
 
 const { t } = useI18n()
+const itemIdSearch = ref('')
 
 const {
   files,
@@ -138,6 +139,12 @@ async function handleSaveBlacklistRules() {
       <span class="block sm:inline">{{ error.message }}</span>
     </div>
 
+    <form class="mb-4 flex items-center gap-2" @submit.prevent="filters.item_id = itemIdSearch.trim()">
+      <label for="item-id-search">商品 ID</label>
+      <input id="item-id-search" v-model="itemIdSearch" class="rounded border px-3 py-2" placeholder="输入完整商品 ID" />
+      <Button type="submit">搜索</Button>
+      <Button type="button" variant="outline" @click="itemIdSearch = ''; filters.item_id = ''">清空</Button>
+    </form>
     <ResultsFilterBar
       :files="files"
       :file-options="fileOptions"

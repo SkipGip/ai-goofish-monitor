@@ -82,6 +82,7 @@ async def delete_result_file(filename: str):
 @router.get("/{filename}")
 async def get_result_file_content(
     filename: str,
+    item_id: str = Query("", max_length=64),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     recommended_only: bool = Query(False),  # 兼容旧参数，等价于 ai_recommended_only
@@ -109,6 +110,7 @@ async def get_result_file_content(
             page=page,
             limit=limit,
             include_hidden=include_hidden,
+            item_id=item_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

@@ -31,6 +31,7 @@ export function useResults() {
 
   function loadPersistedFilters(): Required<Omit<GetResultContentParams, 'page' | 'limit'>> {
     const defaults: Required<Omit<GetResultContentParams, 'page' | 'limit'>> = {
+      item_id: "",
       recommended_only: false,
       ai_recommended_only: false,
       keyword_recommended_only: false,
